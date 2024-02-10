@@ -702,7 +702,7 @@ $productname .= " '$ereleasename'" if defined $ereleasename;
 open F, ">packages/lang.wxl";
 print F <<EOF;
 <?xml version="1.0" encoding="windows-$codepage"?>
-<WixLocalization Culture="en-us" Codepage="$codepage" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+<WixLocalization Culture="de-de" Codepage="$codepage" xmlns="http://schemas.microsoft.com/wix/2006/localization">
 </WixLocalization>
 EOF
 close F;
@@ -715,13 +715,13 @@ print F <<EOF;
      Manufacturer="$manufacturer"
      Id='$productuuid'
      UpgradeCode="$upgradeuuid"
-     Language="1033" Codepage="$codepage" Version="$version">
+     Language="1031" Codepage="$codepage" Version="$version">
 
     <Package Id="*" Keywords="Installer" Description="$packagename $version Installer"
       Comments="QGIS is a registered trademark of QGIS.org"
       Manufacturer="$manufacturer"
       InstallerVersion="200"
-      Languages="1033"
+      Languages="1031"
       Compressed="yes"
       SummaryCodepage="$codepage"
       InstallScope="perMachine" />
