@@ -1,14 +1,15 @@
 export P=msvcrt2019
 export V=14.2
-export B=1
+export B=2
 export MAINTAINER=JuergenFischer
 export BUILDDEPENDS=none
+export PACKAGES="msvcrt2019"
 
 source ../../../scripts/build-helpers
 
 startlog
 
-vs2019env
+vsenv
 
 export R=$OSGEO4W_REP/x86_64/release/$P
 mkdir -p $R
