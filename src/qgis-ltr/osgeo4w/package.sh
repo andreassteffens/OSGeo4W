@@ -2,16 +2,15 @@ export P=qgis-ltr
 export V=tbd
 export B=tbd
 export MAINTAINER=JuergenFischer
-export BUILDDEPENDS="expat-devel fcgi-devel proj-devel gdal-devel qt5-oci sqlite3-devel geos-devel gsl-devel libiconv-devel libzip-devel libspatialindex-devel python3-pip python3-pyqt5 python3-sip python3-pyqt-builder python3-devel python3-qscintilla python3-nose2 python3-future python3-pyyaml python3-mock python3-six qca-devel qscintilla-devel qt5-devel qwt-devel libspatialite-devel oci-devel qtkeychain-devel zlib-devel opencl-devel exiv2-devel protobuf-devel python3-setuptools zstd-devel qtwebkit-devel libpq-devel libxml2-devel hdf5-devel hdf5-tools netcdf-devel pdal pdal-devel grass draco-devel"
+export BUILDDEPENDS="expat-devel fcgi-devel proj-devel gdal-devel qt5-oci sqlite3-devel geos-devel gsl-devel libiconv-devel libzip-devel libspatialindex-devel python3-pip python3-pyqt5 python3-sip python3-pyqt-builder python3-devel python3-qscintilla python3-nose2 python3-future python3-pyyaml python3-mock python3-six qca-devel qscintilla-devel qt5-devel qwt-devel libspatialite-devel oci-devel qtkeychain-devel zlib-devel opencl-devel exiv2-devel protobuf-devel python3-setuptools zstd-devel qtwebkit-devel libpq-devel libxml2-devel hdf5-devel hdf5-tools netcdf-devel pdal pdal-devel grass draco-devel python3-oauthlib"
 export PACKAGES="qgis-ltr qgis-ltr-common qgis-ltr-deps qgis-ltr-devel qgis-ltr-full qgis-ltr-full-free qgis-ltr-grass-plugin qgis-ltr-oracle-provider qgis-ltr-pdb qgis-ltr-server"
 
+: ${REPO:=https://github.com/qgis/QGIS.git}
 : ${SITE:=qgis.org}
 : ${TARGET:=Release}
 : ${CC:=cl.exe}
 : ${CXX:=cl.exe}
 : ${BUILDCONF:=Release}
-
-REPO=https://github.com/qgis/QGIS.git
 
 export SITE TARGET CC CXX BUILDCONF
 
@@ -21,16 +20,7 @@ startlog
 
 # Get latest release branch
 RELBRANCH=$(git ls-remote --heads $REPO "refs/heads/release-*_*" | sed -e '/\^{}$/d' -ne 's#^.*refs/heads/release-#release-#p' | sort -V | tail -1)
-RELBRANCH=${RELBRANCH#*/}
-
-LTRTAG=$(git ls-remote --tags $REPO | sed -e '/\^{}$/d' -ne 's#^.*refs/tags/ltr-#ltr-#p' | sort -V | tail -1)
-LTRBRANCH=release-${LTRTAG#ltr-}
-
-if [ "$RELBRANCH" = "$LTRBRANCH" ]; then
-        LTRTAG=$(git ls-remote --tags $REPO | sed -e '/\^{}$/d' -ne 's#^.*refs/tags/ltr-#ltr-#p' | sort -V | tail -2 | head -1)
-	LTRBRANCH=release-${LTRTAG#ltr-}
-fi
-
+LTRBRANCH=$(git ls-remote --tags $REPO | sed -e '/\^{}$/d' -ne 's#^.*refs/tags/ltr-#release-#p' | fgrep -vx $RELBRANCH | sort -V | tail -1)
 RELTAG=$(git ls-remote --tags $REPO "refs/tags/final-${LTRBRANCH#release-}_*" | sed -e '/\^{}$/d' -ne 's#^.*refs/tags/final-#final-#p' | sort -V | tail -1)
 
 cd ..
@@ -189,6 +179,8 @@ nextbinary
 
 	if [ -z "$OSGEO4W_SKIP_TESTS" ]; then
 	(
+		cd $SRCDIR
+
 		echo RUN_TESTS: $(date)
 		reg add "HKCU\\Software\\Microsoft\\Windows\\Windows Error Reporting" /v DontShow /t REG_DWORD /d 1 /f
 
@@ -202,8 +194,8 @@ nextbinary
 		export PATH="$PATH:$(cygpath -au $GRASS_PREFIX/lib)"
 		export GISBASE=$(cygpath -aw $GRASS_PREFIX)
 
-		export PATH=$PATH:$(cygpath -au $BUILDDIR/output/plugins)
-		export QT_PLUGIN_PATH="$(cygpath -au $BUILDDIR/output/plugins);$(cygpath -au $O4W_ROOT/apps/qt5/plugins)"
+		export PATH=$(cygpath -au $BUILDDIR/output/bin):$(cygpath -au $BUILDDIR/output/plugins):$PATH
+		export QT_PLUGIN_PATH="$(cygpath -aw $BUILDDIR/output/plugins);$(cygpath -aw $O4W_ROOT/apps/qt5/plugins)"
 
 		rm -f ../testfailure
 		if ! cmake --build $(cygpath -am $BUILDDIR) --target Experimental --config $BUILDCONF; then

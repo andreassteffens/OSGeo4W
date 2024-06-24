@@ -18,7 +18,6 @@ use warnings;
 use Getopt::Long;
 use Pod::Usage;
 use Data::UUID;
-use RTF::Writer;
 use File::Copy;
 use File::Basename;
 use Cwd qw/abs_path/;
@@ -492,7 +491,7 @@ close F;
 print "Creating license file\n" if $verbose;
 
 my $lic;
-for my $l ( ( "unpacked/apps/$shortname/doc/LICENSE", "../COPYING", "./Installer-Files/LICENSE.txt" ) ) {
+for my $l ( ( "unpacked/apps/$shortname/doc/LICENSE", "../COPYING" ) ) {
 	next unless -f $l;
 	$lic = $l;
 	last;
@@ -500,18 +499,16 @@ for my $l ( ( "unpacked/apps/$shortname/doc/LICENSE", "../COPYING", "./Installer
 
 warn "no QGIS license found" unless defined $lic;
 
-my $rtf = RTF::Writer->new_to_file("packages/license.temp");
+open RTF, "| enscript -w rtf -o - | sed -e 's/^License overview:/\\\\fs18&/' >packages/license.temp";
 
 my $license = "packages/license.txt";
 open O, ">$license";
 
 sub out {
 	my $m = shift;
-	$rtf->print($m);
+	print RTF $m;
 	print O $m;
 }
-
-$rtf->prolog;
 
 my $i = 0;
 if( @lic ) {
@@ -548,8 +545,7 @@ for my $l (@lic) {
 	close I;
 }
 
-$rtf->close();
-undef $rtf;
+close RTF;
 close O;
 
 system "cp $license unpacked/apps/$shortname/doc/LICENSE" if -f "unpacked/apps/$shortname/doc/LICENSE";
@@ -846,7 +842,7 @@ sub sign {
 	# using ossslsigncode fails eventhough the msi is apparently
 	# fine (no complaints when installing)
 	my $cmd = "osslsigncode sign";
-	$cmd .= " -nolegacy";
+#	$cmd .= " -nolegacy";
 	$cmd .= " -pkcs12 \"\$(cygpath -aw '$signwith')\"";
 	$cmd .= " -pass \"$signpass\"" if defined $signpass;
 	$cmd .= " -n \"$name\"";

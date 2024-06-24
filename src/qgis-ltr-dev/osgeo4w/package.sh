@@ -2,16 +2,16 @@ export P=qgis-ltr-dev
 export V=tbd
 export B=tbd
 export MAINTAINER=JuergenFischer
-export BUILDDEPENDS="expat-devel fcgi-devel proj-devel gdal-devel qt5-oci sqlite3-devel geos-devel gsl-devel libiconv-devel libzip-devel libspatialindex-devel python3-pip python3-pyqt5 python3-sip python3-pyqt-builder python3-devel python3-qscintilla python3-nose2 python3-future python3-pyyaml python3-mock python3-six qca-devel qscintilla-devel qt5-devel qwt-devel libspatialite-devel oci-devel qtkeychain-devel zlib-devel opencl-devel exiv2-devel protobuf-devel python3-setuptools zstd-devel qtwebkit-devel libpq-devel libxml2-devel hdf5-devel hdf5-tools netcdf-devel pdal pdal-devel grass draco-devel transifex-cli"
+export BUILDDEPENDS="expat-devel fcgi-devel proj-devel gdal-devel qt5-oci sqlite3-devel geos-devel gsl-devel libiconv-devel libzip-devel libspatialindex-devel python3-pip python3-pyqt5 python3-sip python3-pyqt-builder python3-devel python3-qscintilla python3-nose2 python3-future python3-pyyaml python3-mock python3-six qca-devel qscintilla-devel qt5-devel qwt-devel libspatialite-devel oci-devel qtkeychain-devel zlib-devel opencl-devel exiv2-devel protobuf-devel python3-setuptools zstd-devel qtwebkit-devel libpq-devel libxml2-devel hdf5-devel hdf5-tools netcdf-devel pdal pdal-devel grass draco-devel transifex-cli python3-oauthlib"
 export PACKAGES="qgis-ltr-dev qgis-ltr-dev-deps qgis-ltr-dev-full qgis-ltr-dev-full-free qgis-ltr-dev-pdb"
 
+: ${REPO:=https://github.com/qgis/QGIS.git}
 : ${SITE:=qgis.org}
 : ${TARGET:=Nightly}
 : ${CC:=cl.exe}
 : ${CXX:=cl.exe}
 : ${BUILDCONF:=RelWithDebInfo}
-
-REPO=https://github.com/qgis/QGIS.git
+: ${PUSH_TO_DASH:=TRUE}
 
 export SITE TARGET CC CXX BUILDCONF
 
@@ -19,19 +19,23 @@ source ../../../scripts/build-helpers
 
 startlog
 
-# Get latest release branch
-RELBRANCH=$(git ls-remote --heads $REPO "refs/heads/release-*_*" | sed -e '/\^{}$/d' -ne 's#^.*refs/heads/release-#release-#p' | sort -V | tail -1)
-RELBRANCH=${RELBRANCH#*/}
+BRANCH=
+if [ -z "$REF" ]; then
+	# Get latest release branch
+	RELBRANCH=$(git ls-remote --heads $REPO "refs/heads/release-*_*" | sed -e '/\^{}$/d' -ne 's#^.*refs/heads/release-#release-#p' | sort -V | tail -1)
+	LTRBRANCH=$(git ls-remote --tags $REPO | sed -e '/\^{}$/d' -ne 's#^.*refs/tags/ltr-#release-#p' | fgrep -vx $RELBRANCH | sort -V | tail -1)
 
-LTRTAG=$(git ls-remote --tags $REPO | sed -e '/\^{}$/d' -ne 's#^.*refs/tags/ltr-#ltr-#p' | sort -V | tail -1)
-LTRBRANCH=release-${LTRTAG#ltr-}
-
-if [ "$RELBRANCH" = "$LTRBRANCH" ]; then
-        LTRTAG=$(git ls-remote --tags $REPO | sed -e '/\^{}$/d' -ne 's#^.*refs/tags/ltr-#ltr-#p' | sort -V | tail -2 | head -1)
-	LTRBRANCH=release-${LTRTAG#ltr-}
-	LABEL="previous long term release"
+	APPNAME="Nightly"
+	if [ "$RELBRANCH" = "$LTRBRANCH" ]; then
+		BRANCH=$PLTRBRANCH
+		PKGDESC="QGIS Nightly build of previous long term release branch"
+	else
+		BRANCH=$LTRBRANCH
+		PKGDESC="QGIS Nightly build of current long term release branch"
+	fi
 else
-	LABEL="long term release"
+	: ${PKGDESC:="QGIS build of long term release branch ($REF)"}
+	: ${APPNAME:=$P/$REF}
 fi
 
 cd ..
@@ -41,18 +45,18 @@ if [ -d qgis ]; then
 	git config core.filemode false
 
 	if [ -z "$OSGEO4W_SKIP_CLEAN" ]; then
-		git fetch origin $LTRBRANCH
+		git fetch origin $BRANCH
 		git clean -f
 		git reset --hard
 
 		git config pull.rebase false
 
-		if [ "$(git branch --show-current)" != $LTRBRANCH ]; then
-			if ! git checkout $LTRBRANCH; then
-				git remote set-branches --add origin $LTRBRANCH
-				git fetch origin $LTRBRANCH:$LTRBRANCH
-				git checkout $LTRBRANCH
-				git branch --set-upstream-to=origin/$LTRBRANCH $LTRBRANCH
+		if [ "$(git branch --show-current)" != $BRANCH ]; then
+			if ! git checkout $BRANCH; then
+				git remote set-branches --add origin $BRANCH
+				git fetch origin $BRANCH:$BRANCH
+				git checkout $BRANCH
+				git branch --set-upstream-to=origin/$BRANCH $BRANCH
 			fi
 		fi
 
@@ -61,16 +65,29 @@ if [ -d qgis ]; then
 			(( ++i ))
 		done
 	fi
-else
-	git clone $REPO --branch $LTRBRANCH --single-branch --depth 1 qgis
+elif [ -n "$BRANCH" ]; then
+	git clone $REPO --branch $BRANCH --single-branch --depth 1 qgis
 	cd qgis
 	git config core.filemode false
 	unset OSGEO4W_SKIP_CLEAN
+elif [ -n "$REF" ]; then
+	set -x
+	mkdir qgis
+	cd qgis
+	git init .
+	git remote add origin $REPO
+	git fetch --no-tags --prune --no-recurse-submodules --depth=1 origin $REF:refs/remotes/${REF#refs/}
+	git checkout --force $REF
+	git log -1 --format='%H'
+	unset OSGEO4W_SKIP_CLEAN
+else
+	echo REF expected
+	exit 1
 fi
 
 if [ -z "$OSGEO4W_SKIP_CLEAN" ]; then
-	patch -p1 --dry-run <../osgeo4w/patch
-	patch -p1 <../osgeo4w/patch
+	git apply --check ../osgeo4w/patch
+	git apply ../osgeo4w/patch
 fi
 
 SHA=$(git log -n1 --pretty=%h)
@@ -133,7 +150,8 @@ nextbinary
 
 	cd ../osgeo4w
 
-	export BUILDNAME=$P-$V-$TARGET-VC17-x86_64
+	export BUILDNAME=$P-$V-$TARGET-VC17
+	export QGIS_CONTINUOUS_INTEGRATION_RUN=true
 	export BUILDDIR=$PWD/build
 	export INSTDIR=$PWD/install
 	export SRCDIR=$(cygpath -am ../qgis)
@@ -166,7 +184,7 @@ nextbinary
 		-D CMAKE_SHARED_LINKER_FLAGS_${BUILDCONF^^}="/INCREMENTAL:NO /DEBUG /OPT:REF /OPT:ICF" \
 		-D CMAKE_MODULE_LINKER_FLAGS_${BUILDCONF^^}="/INCREMENTAL:NO /DEBUG /OPT:REF /OPT:ICF" \
 		-D CMAKE_PDB_OUTPUT_DIRECTORY_${BUILDCONF^^}=$(cygpath -am $BUILDDIR/apps/$P/pdb) \
-		-D BUILDNAME="$BUILDNAME" \
+		-D BUILDNAME="$BUILDNAMEPREFIX$BUILDNAME" \
 		-D SITE="$SITE" \
 		-D PEDANTIC=TRUE \
 		-D WITH_QSPATIALITE=TRUE \
@@ -206,7 +224,7 @@ nextbinary
 		-D QSCINTILLA_LIBRARY=$(cygpath -am $O4W_ROOT/apps/Qt5/lib/qscintilla2.lib) \
 		-D PDAL_UTIL_LIBRARY=$(cygpath -am $O4W_ROOT/lib/pdalcpp.lib) \
 		-D DART_TESTING_TIMEOUT=60 \
-		-D PUSH_TO_CDASH=TRUE \
+		-D PUSH_TO_CDASH=$PUSH_TO_DASH \
 		$(cygpath -m $SRCDIR)
 
 	if [ -z "$OSGEO4W_SKIP_CLEAN" ]; then
@@ -229,6 +247,8 @@ nextbinary
 
 	if [ -z "$OSGEO4W_SKIP_TESTS" ]; then
 	(
+		cd $SRCDIR
+
 		echo RUN_TESTS: $(date)
 		reg add "HKCU\\Software\\Microsoft\\Windows\\Windows Error Reporting" /v DontShow /t REG_DWORD /d 1 /f
 
@@ -242,8 +262,8 @@ nextbinary
 		export PATH="$PATH:$(cygpath -au $GRASS_PREFIX/lib)"
 		export GISBASE=$(cygpath -aw $GRASS_PREFIX)
 
-		export PATH=$PATH:$(cygpath -au $BUILDDIR/output/plugins)
-		export QT_PLUGIN_PATH="$(cygpath -au $BUILDDIR/output/plugins);$(cygpath -au $O4W_ROOT/apps/qt5/plugins)"
+		export PATH=$(cygpath -au $BUILDDIR/output/bin):$(cygpath -au $BUILDDIR/output/plugins):$PATH
+		export QT_PLUGIN_PATH="$(cygpath -aw $BUILDDIR/output/plugins);$(cygpath -aw $O4W_ROOT/apps/qt5/plugins)"
 
 		rm -f ../testfailure
 		if ! cmake --build $(cygpath -am $BUILDDIR) --target ${TARGET}Test --config $BUILDCONF; then
@@ -272,8 +292,8 @@ nextbinary
 		v=$MAJOR.$MINOR.$PATCH
 
 		sed -e "s/@package@/$P/g" -e "s/@version@/$v/g"                                                                                       qgis.reg.tmpl    >install/apps/$P/bin/qgis.reg.tmpl
-		sed -e "s/@package@/$P/g" -e "s/@version@/$v/g" -e "s/@grassversion@/$GRASS_VERSION/g"                                                postinstall.bat  >install/etc/postinstall/$P.bat
-		sed -e "s/@package@/$P/g" -e "s/@version@/$v/g" -e "s/@grassversion@/$GRASS_VERSION/g"                                                preremove.bat    >install/etc/preremove/$P.bat
+		sed -e "s/@package@/$P/g" -e "s/@version@/$v/g" -e "s/@appname@/${APPNAME//\//\\\/}/g" -e "s/@grassversion@/$GRASS_VERSION/g"         postinstall.bat  >install/etc/postinstall/$P.bat
+		sed -e "s/@package@/$P/g" -e "s/@version@/$v/g" -e "s/@appname@/${APPNAME//\//\\\/}/g" -e "s/@grassversion@/$GRASS_VERSION/g"         preremove.bat    >install/etc/preremove/$P.bat
 		sed -e "s/@package@/$P/g" -e "s/@version@/$v/g"                                                                                       designer.bat     >install/bin/$P-designer.bat
 		sed -e "s/@package@/$P/g" -e "s/@version@/$v/g"                                                                                       python.bat       >install/bin/python-$P.bat
 
@@ -318,8 +338,8 @@ nextbinary
 		rmdir $d
 
 		cat <<EOF >$R/setup.hint
-sdesc: "QGIS nightly build of the $LABEL branch"
-ldesc: "QGIS nightly build of the $LABEL branch"
+sdesc: "$PKGDESC"
+ldesc: "$PKGDESC"
 maintainer: $MAINTAINER
 category: Desktop
 requires: msvcrt2019 $RUNTIMEDEPENDS libpq geos zstd gsl gdal libspatialite zlib libiconv fcgi libspatialindex oci qt5-libs qt5-qml qt5-tools qtwebkit-libs qca qwt-libs python3-sip python3-core python3-pyqt5 python3-psycopg2 python3-qscintilla python3-jinja2 python3-markupsafe python3-pygments python3-python-dateutil python3-pytz python3-nose2 python3-mock python3-httplib2 python3-future python3-pyyaml python3-gdal python3-requests python3-plotly python3-pyproj python3-owslib qtkeychain-libs libzip opencl exiv2 hdf5 pdal pdal-libs
@@ -328,8 +348,8 @@ EOF
 		appendversions $R/setup.hint
 
 		cat <<EOF >$R/$P-pdb/setup.hint
-sdesc: "Debugging symbols for QGIS nightly build of the $LABEL branch"
-ldesc: "Debugging symbols for QGIS nightly build of the $LABEL branch"
+sdesc: "$PKGDESC (debugging symbols)"
+ldesc: "$PKGDESC (debugging symbols)"
 maintainer: $MAINTAINER
 category: Desktop
 requires: $P
@@ -339,8 +359,8 @@ EOF
 		appendversions $R/$P-pdb/setup.hint
 
 		cat <<EOF >$R/$P-full-free/setup.hint
-sdesc: "QGIS nightly build of the $LABEL branch (metapackage with additional free dependencies)"
-ldesc: "QGIS nightly build of the $LABEL branch (metapackage with additional free dependencies)"
+sdesc: "$PKGDESC (metapackage with additional free dependencies)"
+ldesc: "$PKGDESC (metapackage with additional free dependencies)"
 maintainer: $MAINTAINER
 category: Desktop
 requires: $P proj python3-pyparsing python3-simplejson python3-shapely python3-matplotlib python3-pygments qt5-tools python3-networkx python3-scipy python3-pyodbc python3-xlrd python3-xlwt setup python3-exifread python3-lxml python3-jinja2 python3-markupsafe python3-python-dateutil python3-pytz python3-nose2 python3-mock python3-httplib2 python3-pypiwin32 python3-future python3-pip python3-pillow python3-geopandas python3-geographiclib grass python3-pyserial gdal-sosi python3-openpyxl python3-remotior-sensus saga
@@ -350,8 +370,8 @@ EOF
 		appendversions $R/$P-full-free/setup.hint
 
 		cat <<EOF >$R/$P-full/setup.hint
-sdesc: "QGIS nightly build of the $LABEL branch (metapackage with additional dependencies including proprietary)"
-ldesc: "QGIS nightly build of the $LABEL branch (metapackage with additional dependencies including proprietary)"
+sdesc: "$PKGDESC (metapackage with additional dependencies including proprietary)"
+ldesc: "$PKGDESC (metapackage with additional dependencies including proprietary)"
 maintainer: $MAINTAINER
 category: Desktop
 requires: $P-full-free gdal-hdf5 gdal-mss gdal-ecw gdal-mrsid gdal-oracle
@@ -361,8 +381,8 @@ EOF
 		appendversions $R/$P-full/setup.hint
 
 		cat <<EOF >$R/$P-deps/setup.hint
-sdesc: "QGIS build dependencies of nightly build of $LABEL branch (meta package)"
-ldesc: "QGIS build dependencies of nightly build of $LABEL branch (meta package)"
+sdesc: "$PKGDESC (meta package of build dependencies)"
+ldesc: "$PKGDESC (meta package of build dependencies)"
 maintainer: $MAINTAINER
 category: Libs
 requires: $BUILDDEPENDS

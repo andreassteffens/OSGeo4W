@@ -2,16 +2,15 @@ export P=qgis
 export V=tbd
 export B=tbd
 export MAINTAINER=JuergenFischer
-export BUILDDEPENDS="expat-devel fcgi-devel proj-devel gdal-devel qt5-oci sqlite3-devel geos-devel gsl-devel libiconv-devel libzip-devel libspatialindex-devel python3-pip python3-pyqt5 python3-sip python3-pyqt-builder python3-devel python3-qscintilla python3-nose2 python3-future python3-pyyaml python3-mock python3-six qca-devel qscintilla-devel qt5-devel qwt-devel libspatialite-devel oci-devel qtkeychain-devel zlib-devel opencl-devel exiv2-devel protobuf-devel python3-setuptools zstd-devel qtwebkit-devel libpq-devel libxml2-devel hdf5-devel hdf5-tools netcdf-devel pdal pdal-devel grass draco-devel libtiff-devel"
+export BUILDDEPENDS="expat-devel fcgi-devel proj-devel gdal-devel qt5-oci sqlite3-devel geos-devel gsl-devel libiconv-devel libzip-devel libspatialindex-devel python3-pip python3-pyqt5 python3-sip python3-pyqt-builder python3-devel python3-qscintilla python3-nose2 python3-future python3-pyyaml python3-mock python3-six qca-devel qscintilla-devel qt5-devel qwt-devel libspatialite-devel oci-devel qtkeychain-devel zlib-devel opencl-devel exiv2-devel protobuf-devel python3-setuptools zstd-devel qtwebkit-devel libpq-devel libxml2-devel hdf5-devel hdf5-tools netcdf-devel pdal pdal-devel grass draco-devel libtiff-devel python3-oauthlib"
 export PACKAGES="qgis qgis-common qgis-deps qgis-devel qgis-full qgis-full-free qgis-grass-plugin qgis-oracle-provider qgis-pdb qgis-server"
 
+: ${REPO:=https://github.com/qgis/QGIS.git}
 : ${SITE:=qgis.org}
 : ${TARGET:=Release}
 : ${CC:=cl.exe}
 : ${CXX:=cl.exe}
 : ${BUILDCONF:=Release}
-
-REPO=https://github.com/qgis/QGIS.git
 
 export SITE TARGET CC CXX BUILDCONF
 
@@ -180,6 +179,8 @@ nextbinary
 
 	if [ -z "$OSGEO4W_SKIP_TESTS" ]; then
 	(
+		cd $SRCDIR
+
 		echo RUN_TESTS: $(date)
 		reg add "HKCU\\Software\\Microsoft\\Windows\\Windows Error Reporting" /v DontShow /t REG_DWORD /d 1 /f
 
@@ -193,8 +194,8 @@ nextbinary
 		export PATH="$PATH:$(cygpath -au $GRASS_PREFIX/lib)"
 		export GISBASE=$(cygpath -aw $GRASS_PREFIX)
 
-		export PATH=$PATH:$(cygpath -au $BUILDDIR/output/plugins)
-		export QT_PLUGIN_PATH="$(cygpath -au $BUILDDIR/output/plugins);$(cygpath -au $O4W_ROOT/apps/qt5/plugins)"
+		export PATH=$(cygpath -au $BUILDDIR/output/bin):$(cygpath -au $BUILDDIR/output/plugins):$PATH
+		export QT_PLUGIN_PATH="$(cygpath -aw $BUILDDIR/output/plugins);$(cygpath -aw $O4W_ROOT/apps/qt5/plugins)"
 
 		rm -f ../testfailure
 		if ! cmake --build $(cygpath -am $BUILDDIR) --target Experimental --config $BUILDCONF; then
